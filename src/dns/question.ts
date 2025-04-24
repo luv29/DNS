@@ -27,25 +27,68 @@ export enum DNSClass {
 export interface IDNSQuestion {
     name: string;
     type: DNSType;
-    classCode: DNSClass;
+    class: DNSClass;
 }
 
 class DNSQuestion {
     static write(questions: IDNSQuestion[]) {
-        return Buffer.concat(questions.map(question => {
-            const { name, type, classCode } = question;
-
-            const str = name
+        return Buffer.concat(questions.map(question => { 
+            const questionLabels = question.name
                 .split(".")
-                .map((n) => `${String.fromCharCode(n.length)}${n}`)
-                .join("");
+                .map(label => {
+                    const length = label.length
+                    const buff = Buffer.alloc(length + 1)
+                    
+                    buff.writeUInt8(length)
+                    buff.write(label, 1)
+                    
+                    return buff
+                })
 
-            const typeAndClass = Buffer.alloc(4)
-            typeAndClass.writeUInt16BE(type);
-            typeAndClass.writeUInt16BE(classCode, 2);
+            const endBuffer = Buffer.alloc(1)
+            endBuffer.writeUInt8(0)
 
-            return Buffer.concat([Buffer.from(str + '\0', 'binary'), typeAndClass])
+            const dnsTypeBuffer = Buffer.alloc(2)
+            dnsTypeBuffer.writeUInt16BE(question.type)
+            
+            const dnsClassBuffer = Buffer.alloc(2)
+            dnsClassBuffer.writeUInt16BE(question.class)
+            
+            return Buffer.concat([...questionLabels, endBuffer, dnsTypeBuffer, dnsClassBuffer]);  
         }));
+    }
+
+    static parse(questionBuffer: Buffer): IDNSQuestion {
+        let doveSto = 0;
+        const labels = [];
+    
+        while (questionBuffer[doveSto] !== 0) {
+            const labelLength = questionBuffer.readUInt8(doveSto);
+            doveSto++;
+            
+            const label = questionBuffer.subarray(doveSto, doveSto + labelLength).toString();
+            
+            labels.push(label);
+            doveSto += labelLength;
+        }
+    
+        doveSto++;
+    
+        const type = questionBuffer.readUInt16BE(doveSto);
+        doveSto += 2;
+    
+        const classCode = questionBuffer.readUInt16BE(doveSto);
+        doveSto += 2;
+    
+        const name = labels.join(".");
+    
+        console.log(`Parsed Question → Name: ${name}, Type: ${type}, Class: ${classCode}`);
+    
+        return {
+            name,
+            type,
+            class: classCode,
+        };
     }
 }
 

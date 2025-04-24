@@ -3,30 +3,53 @@ import { DNSClass, DNSType } from "./question";
 export interface IDNSAnswer {
     name: string;
     type: DNSType;
-    classNmae: DNSClass;
-    ttl: number;
+    class: DNSClass;
+    TTL: number;
+    length: number;
     data: string;
 }
 
 class DNSAnswer {
-    static write(answer: IDNSAnswer[]) {
+    static write(answers: IDNSAnswer[]) {
         return Buffer.concat(
-            answer.map((ans) => {
-                const {classNmae, data, name, ttl, type} = ans
+            answers.map((answer) => {
+                const questionLabels = answer.name
+                    .split(".")
+                    .map(label => {
+                        const length = label.length
+                        const buff = Buffer.alloc(length + 1)
+                        
+                        buff.writeUInt8(length)
+                        buff.write(label, 1)
+                        
+                        return buff
+                    })
 
-                const buffer = Buffer.alloc(10)
+                const endBuffer = Buffer.alloc(1)
+                endBuffer.writeUInt8(0)
+                
+                const dnsTypeBuffer = Buffer.alloc(2)
+                dnsTypeBuffer.writeUInt16BE(answer.type)
+                
+                const dnsClassBuffer = Buffer.alloc(2)
+                dnsClassBuffer.writeUInt16BE(answer.class)
+                
+                const ttlBuffer = Buffer.alloc(4)
+                ttlBuffer.writeUInt32BE(answer.TTL)
+                
+                const lengthBuffer = Buffer.alloc(2)
+                lengthBuffer.writeUInt16BE(answer.length)
+                
+                const dataLabels = answer.data
+                    .split(".")
+                    .map(label => {
+                        const buff= Buffer.alloc(1)
+                        buff.writeUInt8(Number(label))
+                        
+                        return buff
+                    })
 
-                const str = name
-                    .split('.')
-                    .map(e => `${String.fromCharCode(e.length)}${e}`)
-                    .join("")
-
-                buffer.writeUInt16BE(type);
-                buffer.writeUInt16BE(classNmae, 2);
-                buffer.writeUInt16BE(ttl, 4);
-                buffer.writeUInt16BE(data.length, 8);
-
-                return Buffer.concat([Buffer.from(str+'\0', "binary"), buffer, Buffer.from(data + '\0', "binary")]);
+                return  Buffer.concat([...questionLabels, endBuffer, dnsTypeBuffer, dnsClassBuffer,ttlBuffer,lengthBuffer,...dataLabels]);
             })
         )
     }
