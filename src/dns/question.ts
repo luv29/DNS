@@ -90,6 +90,33 @@ class DNSQuestion {
             class: classCode,
         };
     }
+
+    static parseWithLength(questionBuffer: Buffer): { question: IDNSQuestion, length: number, name?: string } {
+        let doveSto = 0;
+        const labels = [];
+    
+        while (questionBuffer[doveSto] !== 0) {
+            const labelLength = questionBuffer.readUInt8(doveSto);
+            doveSto++;
+            const label = questionBuffer.subarray(doveSto, doveSto + labelLength).toString();
+            labels.push(label);
+            doveSto += labelLength;
+        }
+    
+        doveSto++; // skip null byte
+        const type = questionBuffer.readUInt16BE(doveSto); doveSto += 2;
+        const classCode = questionBuffer.readUInt16BE(doveSto); doveSto += 2;
+    
+        return {
+            question: {
+                name: labels.join("."),
+                type,
+                class: classCode
+            },
+            length: doveSto
+        };
+    }
+    
 }
 
 export default DNSQuestion;

@@ -1,94 +1,85 @@
 import * as dgram from "dgram";
-
-const serverPort = 53;
-const serverAddress = "127.0.0.1";
-const domain = "code.io";
-
-function buildQuery(): Buffer {
-    const header = Buffer.alloc(12);
-    header.writeUInt16BE(0x1234, 0); // ID
-    header.writeUInt16BE(0x0100, 2); // Flags: Standard query with recursion desired
-    header.writeUInt16BE(1, 4);      // QDCOUNT
-    header.writeUInt16BE(0, 6);      // ANCOUNT
-    header.writeUInt16BE(0, 8);      // NSCOUNT
-    header.writeUInt16BE(0, 10);     // ARCOUNT
-
-    const questionParts = domain.split(".");
-    const questionName = Buffer.concat(
-        questionParts.map(part => {
-            const len = Buffer.alloc(1);
-            len.writeUInt8(part.length);
-            return Buffer.concat([len, Buffer.from(part)]);
-        }).concat(Buffer.from([0x00])) // null terminator
-    );
-
-    const questionTypeClass = Buffer.alloc(4);
-    questionTypeClass.writeUInt16BE(1, 0); // Type A
-    questionTypeClass.writeUInt16BE(1, 2); // Class IN
-
-    return Buffer.concat([header, questionName, questionTypeClass]);
-}
-
-function parseResponse(msg: Buffer) {
-    const id = msg.readUInt16BE(0);
-    const flags = msg.readUInt16BE(2);
-    const qdcount = msg.readUInt16BE(4);
-    const ancount = msg.readUInt16BE(6);
-
-    const rcode = flags & 0x000F;
-
-    console.log(`DNS Response (ID: ${id})`);
-    console.log(`RCODE: ${rcode}`);
-    console.log(`Questions: ${qdcount}, Answers: ${ancount}`);
-
-    let offset = 12;
-
-    // Skip questions
-    for (let i = 0; i < qdcount; i++) {
-        while (msg[offset] !== 0) offset += msg[offset] + 1;
-        offset += 5; // null byte + type (2) + class (2)
-    }
-
-    // Parse answers
-    for (let i = 0; i < ancount; i++) {
-        // Read name
-        const nameParts = [];
-        while (msg[offset] !== 0) {
-            const len = msg[offset];
-            offset++;
-            nameParts.push(msg.toString("ascii", offset, offset + len));
-            offset += len;
-        }
-        offset++; // null terminator
-
-        const type = msg.readUInt16BE(offset); offset += 2;
-        const cls = msg.readUInt16BE(offset); offset += 2;
-        const ttl = msg.readUInt16BE(offset); offset += 2;
-        const rdlength = msg.readUInt16BE(offset); offset += 2;
-
-        const rdata = msg.slice(offset, offset + rdlength);
-        offset += rdlength;
-
-        let dataStr = rdata.toString("ascii").replace(/\0$/, "");
-        if (type === 1 && rdlength === 4) {
-            dataStr = [...rdata].join('.');
-        }
-
-        console.log(`Answer ${i + 1}:`);
-        console.log(`Type: ${type}, TTL: ${ttl}s`);
-        console.log(`Data: ${dataStr}`);
-    }
-}
+import DNSHeader, { Opcode, ResposeCode } from "./dns/header";
+import DNSQuestion, { DNSClass, DNSType, type IDNSQuestion } from "./dns/question";
 
 const socket = dgram.createSocket("udp4");
-const query = buildQuery();
 
-socket.send(query, serverPort, serverAddress, err => {
-    if (err) console.error("Error sending query:", err);
+const domain = "code.io";
+
+const header = DNSHeader.write({
+    ID: Math.floor(Math.random() * 65535),
+    QR: 0,
+    OpCode: Opcode.STANDARD_QUERY,
+    AA: 0,
+    TC: 0,
+    RD: 1,
+    RA: 0,
+    Z: "000",
+    RCode: ResposeCode.NOT_IMPLEMENTED,
+    QDCOUNT: 1,
+    ANCOUNT: 0,
+    NSCOUNT: 0,
+    ARCOUNT: 0,
 });
 
-socket.on("message", msg => {
-    console.log("Received response from server:");
-    parseResponse(msg);
+const question: IDNSQuestion = {
+    name: domain,
+    type: DNSType.A,
+    class: DNSClass.IN,
+};
+
+const questionBuffer = DNSQuestion.write([question]);
+
+const message = Buffer.concat([header, questionBuffer]);
+
+socket.send(message, 53, "127.0.0.1");
+
+socket.on("message", (msg: Buffer) => {
+    const header = DNSHeader.parse(msg.subarray(0, 12));
+    console.log("\n--- DNS HEADER ---");
+    console.log(header);
+
+    // Parse question
+    const { question, length: questionLen } = DNSQuestion.parseWithLength(msg.subarray(12));
+    console.log("\n--- DNS QUESTION ---");
+    console.log(question);
+
+    let offset = 12 + questionLen;
+
+    // Parse answer name (should be a pointer)
+    const nameByte = msg.readUInt8(offset);
+    let name = "";
+    if ((nameByte & 0b11000000) === 0b11000000) {
+        const pointer = msg.readUInt16BE(offset) & 0x3FFF;
+        const { name: parsedName } = DNSQuestion.parseWithLength(msg.subarray(pointer));
+        name = parsedName!;
+        offset += 2;
+    } else {
+        const labels = [];
+        while (msg[offset] !== 0) {
+            const len = msg.readUInt8(offset++);
+            labels.push(msg.subarray(offset, offset + len).toString());
+            offset += len;
+        }
+        offset++; // null byte
+        name = labels.join(".");
+    }
+
+    const type = msg.readUInt16BE(offset); offset += 2;
+    const classCode = msg.readUInt16BE(offset); offset += 2;
+    const ttl = msg.readUInt32BE(offset); offset += 4;
+    const dataLen = msg.readUInt16BE(offset); offset += 2;
+    const dataBytes = msg.subarray(offset, offset + dataLen);
+    offset += dataLen;
+
+    const ip = dataBytes.join(".");
+
+    console.log("\n--- DNS ANSWER ---");
+    console.log(`Name: ${name}`);
+    console.log(`Type: ${type}`);
+    console.log(`Class: ${classCode}`);
+    console.log(`TTL: ${ttl}`);
+    console.log(`Data: ${ip}`);
+
     socket.close();
 });
