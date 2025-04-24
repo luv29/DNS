@@ -1,4 +1,4 @@
-export enum DNSQuestionType {
+export enum DNSType {
     A = 1,
     NS = 2,
     MD = 3,
@@ -26,7 +26,7 @@ export enum DNSClass {
 
 export interface IDNSQuestion {
     name: string;
-    type: DNSQuestionType;
+    type: DNSType;
     classCode: DNSClass;
 }
 
@@ -35,22 +35,16 @@ class DNSQuestion {
         return Buffer.concat(questions.map(question => {
             const { name, type, classCode } = question;
 
-            const encodedName = name
+            const str = name
                 .split(".")
-                .map(part => {
-                    const buf = Buffer.alloc(part.length + 1);
-                    buf.writeUInt8(part.length, 0);
-                    buf.write(part, 1);
-                    return buf;
-                });
+                .map((n) => `${String.fromCharCode(n.length)}${n}`)
+                .join("");
 
-            const nullTerminator = Buffer.from([0]);
-
-            const typeAndClass = Buffer.alloc(4);
-            typeAndClass.writeUInt16BE(type, 0);
+            const typeAndClass = Buffer.alloc(4)
+            typeAndClass.writeUInt16BE(type);
             typeAndClass.writeUInt16BE(classCode, 2);
 
-            return Buffer.concat([...encodedName, nullTerminator, typeAndClass]);
+            return Buffer.concat([Buffer.from(str + '\0', 'binary'), typeAndClass])
         }));
     }
 }
