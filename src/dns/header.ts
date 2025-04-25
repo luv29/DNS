@@ -1,35 +1,5 @@
-export type Bit = 0 | 1;
-
-export enum Opcode {
-    STANDARD_QUERY = '0000',
-    INVERSE_QUERY = '0001',
-    SERVER_STATUS_REQUEST = '0010'
-}
-
-export enum ResposeCode {
-    NO_ERROR = '0000',
-    FORMAT_ERROR = '0001',
-    SERVER_FAILURE = '0010',
-    NAME_ERROR = '0011',
-    NOT_IMPLEMENTED = '0100',
-    REFUSED = '0101',
-}
-
-export interface IDNSHeader {
-    ID: number;
-    QR: Bit;
-    OpCode: Opcode;
-    AA: Bit;
-    TC: Bit;
-    RD: Bit;
-    RA: Bit;
-    Z: string;
-    RCode: ResposeCode;
-    QDCOUNT: number;
-    ANCOUNT: number;
-    NSCOUNT: number;
-    ARCOUNT: number;
-}
+import { OpCode, ResposeCode } from "../enum";
+import type { Bit, IDNSHeader } from "../interface";
 
 class DNSHeader {
     static write(header: IDNSHeader): Buffer {
@@ -58,7 +28,7 @@ class DNSHeader {
         const header: IDNSHeader = {
             ID: id,
             QR: 1,
-            OpCode: opCode as Opcode,
+            OpCode: opCode as OpCode,
             AA: 0,
             TC: 0,
             RD: rd,

@@ -1,13 +1,4 @@
-import { DNSClass, DNSType } from "./question";
-
-export interface IDNSAnswer {
-    name: string;
-    type: DNSType;
-    class: DNSClass;
-    TTL: number;
-    length: number;
-    data: string;
-}
+import { IDNSAnswer } from "../interface"
 
 class DNSAnswer {
     static write(answers: IDNSAnswer[]) {

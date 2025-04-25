@@ -1,6 +1,15 @@
 import * as dgram from "dgram";
-import DNSHeader, { Opcode, ResposeCode } from "./dns/header";
-import DNSQuestion, { DNSClass, DNSType, type IDNSQuestion } from "./dns/question";
+import type { 
+    IDNSQuestion
+} from "./interface";
+import { 
+    ResposeCode,
+    DNSClass,
+    DNSType,
+    OpCode
+} from "./enum";
+import DNSHeader from "./dns/header";
+import DNSQuestion from "./dns/question";
 
 const socket = dgram.createSocket("udp4");
 
@@ -9,7 +18,7 @@ const domain = "code.io";
 const header = DNSHeader.write({
     ID: Math.floor(Math.random() * 65535),
     QR: 0,
-    OpCode: Opcode.STANDARD_QUERY,
+    OpCode: OpCode.STANDARD_QUERY,
     AA: 0,
     TC: 0,
     RD: 1,

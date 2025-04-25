@@ -1,8 +1,18 @@
 import * as dgram from "dgram";
-import DNSHeader, { Opcode, ResposeCode } from "./dns/header";
-import type { IDNSHeader } from "./dns/header";
-import DNSQuestion, { DNSClass, DNSType, type IDNSQuestion } from "./dns/question";
-import DNSAnswer, { IDNSAnswer } from "./dns/answer";
+import type { 
+    IDNSHeader,
+    IDNSQuestion,
+    IDNSAnswer
+} from "./interface";
+import { 
+    OpCode,
+    ResposeCode,
+    DNSClass,
+    DNSType
+} from "./enum";
+import DNSHeader from "./dns/header";
+import DNSQuestion from "./dns/question";
+import DNSAnswer from "./dns/answer";
 
 console.log("DNS Server is running on 127.0.0.1:53");
 
@@ -19,6 +29,12 @@ udpSocket.on("message", (data: Buffer, remoteAddr: dgram.RemoteInfo) => {
         // Parse the DNS question
         const questionSection = data.subarray(12);
         const questionData = DNSQuestion.parse(questionSection);
+        
+        if (questionData.type !== DNSType.A) {
+            console.log(`Unsupported query type: ${questionData.type}`);
+            // optionally respond with RCode = NOT_IMPLEMENTED
+            return;
+        }
 
         const defaultAnswer: IDNSAnswer = {
             name: questionData.name,
