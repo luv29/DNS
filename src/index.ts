@@ -32,7 +32,7 @@ logger.info("DNS Server is running on 127.0.0.1:53");
 
 udpSocket.on("message", (data: Buffer, remoteAddr: dgram.RemoteInfo) => {
     try {
-        logger.info(`\nReceived data from ${remoteAddr.address}:${remoteAddr.port}`);
+        logger.info(`Received data from ${remoteAddr.address}:${remoteAddr.port}`);
 
         // Parse the DNS header
         const headerData = DNSHeader.parse(data.subarray(0, 12));
