@@ -13,7 +13,7 @@ const DNSRecordSchema = new Schema<IDNSRecord>(
         },
         class: {
             type: Number,
-            required: true;
+            required: true
         },
         ttl: {
             type: Number,
@@ -21,7 +21,7 @@ const DNSRecordSchema = new Schema<IDNSRecord>(
         },
         data: {
             type: String,
-            required: true;
+            required: true
         },
         priority: Number,
         port: Number,

@@ -7,6 +7,6 @@ export interface IDNSRecord extends Document {
     ttl: number;
     data: string;
     priority?: number;
-    port: number;
-    weight: number;
+    port?: number;
+    weight?: number;
 }
