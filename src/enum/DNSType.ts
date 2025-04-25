@@ -14,5 +14,8 @@ export enum DNSType {
     HINFO = 13,
     MINFO = 14,
     MX = 15,
-    TXT = 16
+    TXT = 16,
+    AAAA = 28,     // IPv6 address
+    SRV = 33,      // Service locator
+    ANY = 255      // All records (wildcard query)
 }
