@@ -11,7 +11,7 @@ import DNSQuestion from "./dns/question";
 import DNSAnswer from "./dns/answer";
 import connectDB from "./db";
 import logger from "./logger/winston.logger";
-import DNSRecord from "./model/DNSRecord.model"; // << make sure this path is correct
+import DNSRecord from "./model/DNSRecord.model";
 
 (async function () {
     await connectDB();
@@ -26,42 +26,52 @@ udpSocket.on("message", async (data: Buffer, remoteAddr: dgram.RemoteInfo) => {
     try {
         logger.info(`Received data from ${remoteAddr.address}:${remoteAddr.port}`);
 
-        const headerData = DNSHeader.parse(data.subarray(0, 12));
-        const questionSection = data.subarray(12);
-        const questionData = DNSQuestion.parse(questionSection);
+        const inputHeader = DNSHeader.parse(data.subarray(0, 12));
+        let offset = 12;
+        const questions: IDNSQuestion[] = [];
 
-        // Look for matching record in the DB
-        const records = await DNSRecord.find({
-            name: questionData.name,
-            type: questionData.type,
-            class: questionData.class
-        });
-
-        if (!records.length) {
-            logger.warn(`No record found for ${questionData.name}`);
-            // Optionally send back a response with RCode = NXDOMAIN
-            return;
+        for (let i = 0; i < inputHeader.QDCOUNT; i++) {
+            const { question, length } = DNSQuestion.parse(data.subarray(offset));
+            questions.push(question);
+            offset += length;
         }
 
-        const answers: IDNSAnswer[] = records.map((record) => ({
-            name: record.name,
-            type: record.type,
-            class: record.class,
-            TTL: record.ttl,
-            length: 4, // assuming 4 for A records. You can calculate it based on type
-            data: record.data
-        }));
+        const answers: IDNSAnswer[] = [];
+
+        for (const question of questions) {
+            const records = await DNSRecord.find({
+                name: question.name,
+                type: question.type,
+                class: question.class,
+            });
+
+            if (!records.length) {
+                logger.warn(`No record found for ${question.name} of type ${DNSType[question.type]} and class ${DNSClass[question.class]}`);
+                continue; // Skip to next question if no answer
+            }
+
+            records.forEach((record) => {
+                answers.push({
+                    name: record.name,
+                    type: record.type,
+                    class: record.class,
+                    TTL: record.ttl,
+                    length: 4, // Adjust if type varies
+                    data: record.data,
+                });
+            });
+        }
 
         const responseHeader: IDNSHeader = {
-            ...headerData,
+            ...inputHeader,
             QR: 1,
             RA: 1,
             RCode: ResposeCode.NO_ERROR,
-            ANCOUNT: answers.length
+            ANCOUNT: answers.length,
         };
 
         const headerBuffer = DNSHeader.write(responseHeader);
-        const questionBuffer = DNSQuestion.write([questionData]);
+        const questionBuffer = DNSQuestion.write(questions);
         const answerBuffer = DNSAnswer.write(answers);
 
         const response = Buffer.concat([headerBuffer, questionBuffer, answerBuffer]);

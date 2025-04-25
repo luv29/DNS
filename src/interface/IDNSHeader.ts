@@ -9,7 +9,7 @@ export interface IDNSHeader {
     TC: Bit;
     RD: Bit;
     RA: Bit;
-    Z: string;
+    Z: number;
     RCode: ResposeCode;
     QDCOUNT: number;
     ANCOUNT: number;

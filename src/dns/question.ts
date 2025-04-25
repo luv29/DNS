@@ -28,38 +28,38 @@ class DNSQuestion {
         }));
     }
 
-    static parse(questionBuffer: Buffer): IDNSQuestion {
-        let doveSto = 0;
-        const labels = [];
+    // static parse(questionBuffer: Buffer): IDNSQuestion {
+    //     let doveSto = 0;
+    //     const labels = [];
     
-        while (questionBuffer[doveSto] !== 0) {
-            const labelLength = questionBuffer.readUInt8(doveSto);
-            doveSto++;
+    //     while (questionBuffer[doveSto] !== 0) {
+    //         const labelLength = questionBuffer.readUInt8(doveSto);
+    //         doveSto++;
             
-            const label = questionBuffer.subarray(doveSto, doveSto + labelLength).toString();
+    //         const label = questionBuffer.subarray(doveSto, doveSto + labelLength).toString();
             
-            labels.push(label);
-            doveSto += labelLength;
-        }
+    //         labels.push(label);
+    //         doveSto += labelLength;
+    //     }
     
-        doveSto++;
+    //     doveSto++;
     
-        const type = questionBuffer.readUInt16BE(doveSto);
-        doveSto += 2;
+    //     const type = questionBuffer.readUInt16BE(doveSto);
+    //     doveSto += 2;
     
-        const classCode = questionBuffer.readUInt16BE(doveSto);
-        doveSto += 2;
+    //     const classCode = questionBuffer.readUInt16BE(doveSto);
+    //     doveSto += 2;
     
-        const name = labels.join(".");
+    //     const name = labels.join(".");
 
-        return {
-            name,
-            type,
-            class: classCode,
-        };
-    }
+    //     return {
+    //         name,
+    //         type,
+    //         class: classCode,
+    //     };
+    // }
 
-    static parseWithLength(questionBuffer: Buffer): { question: IDNSQuestion, length: number, name?: string } {
+    static parse(questionBuffer: Buffer): { question: IDNSQuestion, length: number} {
         let doveSto = 0;
         const labels = [];
     
