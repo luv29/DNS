@@ -51,9 +51,7 @@ class DNSQuestion {
         doveSto += 2;
     
         const name = labels.join(".");
-    
-        console.log(`Parsed Question → Name: ${name}, Type: ${type}, Class: ${classCode}`);
-    
+
         return {
             name,
             type,

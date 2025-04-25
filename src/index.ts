@@ -1,3 +1,8 @@
+import dotenv from "dotenv";
+dotenv.config({
+  path: "./.env",
+});
+
 import * as dgram from "dgram";
 import type { 
     IDNSHeader,
@@ -13,15 +18,21 @@ import {
 import DNSHeader from "./dns/header";
 import DNSQuestion from "./dns/question";
 import DNSAnswer from "./dns/answer";
+import connectDB from "./db";
+import logger from "./logger/winston.logger";
 
-console.log("DNS Server is running on 127.0.0.1:53");
+(async function () {
+    await connectDB();
+}) ();
 
 const udpSocket: dgram.Socket = dgram.createSocket("udp4");
 udpSocket.bind(53, "127.0.0.1");
 
+logger.info("DNS Server is running on 127.0.0.1:53");
+
 udpSocket.on("message", (data: Buffer, remoteAddr: dgram.RemoteInfo) => {
     try {
-        console.log(`\nReceived data from ${remoteAddr.address}:${remoteAddr.port}`);
+        logger.info(`\nReceived data from ${remoteAddr.address}:${remoteAddr.port}`);
 
         // Parse the DNS header
         const headerData = DNSHeader.parse(data.subarray(0, 12));
@@ -31,7 +42,7 @@ udpSocket.on("message", (data: Buffer, remoteAddr: dgram.RemoteInfo) => {
         const questionData = DNSQuestion.parse(questionSection);
         
         if (questionData.type !== DNSType.A) {
-            console.log(`Unsupported query type: ${questionData.type}`);
+            logger.error(`Unsupported query type: ${questionData.type}`);
             // optionally respond with RCode = NOT_IMPLEMENTED
             return;
         }
@@ -61,6 +72,6 @@ udpSocket.on("message", (data: Buffer, remoteAddr: dgram.RemoteInfo) => {
 
         udpSocket.send(response, remoteAddr.port, remoteAddr.address);
     } catch (e) {
-        console.error(`Error while handling DNS message: ${(e as Error).message}`);
+        logger.error(`Error while handling DNS message: ${(e as Error).message}`);
     }
 });
